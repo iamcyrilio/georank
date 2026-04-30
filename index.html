@@ -429,6 +429,42 @@
     color: var(--muted);
     margin-bottom: 8px;
   }
+
+  .indice-card { position: relative; cursor: pointer; }
+
+  .indice-sens {
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 3px;
+    font-style: italic;
+  }
+
+  .tooltip-bubble {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0; right: 0;
+    background: #2a2a3d;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 200;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+
+  .tooltip-bubble.visible { display: block; }
+  .tooltip-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 20px;
+    border: 6px solid transparent;
+    border-top-color: var(--accent);
+  }
+
 </style>
 </head>
 <body>
@@ -17159,6 +17195,19 @@ let state = {
 // ─── Render ─────────────────────────────────────────────────────
 const CATEGORY_EMOJIS = {"Age median": "👴", "Altitude moyenne": "⛰️", "CO² par habitant": "🌫️", "Consommation d'alcool": "🍷", "Consommation d'electricité": "⚡", "Consommation d'œufs par habitant": "🥚", "Consommation de beurre par habitant": "🧈", "Consommation de bières par habitant": "🍺", "Consommation de café par habitant": "☕", "Consommation de fruits par habitant": "🍎", "Consommation de lait par habitant": "🥛", "Consommation de poissons par habitant": "🐟", "Consommation de thé par habitant": "🍵", "Consommation de viande par habitant": "🥩", "Densité": "👥", "Developpement digital": "💻", "Energie solaire": "☀️", "Espérance de vie": "❤️", "Gaspillage alimentaire": "🗑️", "Global Peace Index": "🕊️", "Indice d'Innovation": "💡", "Indice de Développement Humain": "🌱", "Indice de corruption": "🤐", "Indice de démocratie": "🗳️", "Indice environnemental": "🌿", "Liberté de la presse": "📰", "Nombre d'étoilés Michelin": "⭐", "Nombre de McDonald's": "🍔", "Nombre de médailles olympiques": "🏅", "PIB par habitant": "💰", "Population": "🌍", "QI moyen": "🧠", "Stabilité politique": "🏛️", "Superficie": "📐", "Surface forestière": "🌲", "Taille ZEE": "🌊", "Taux de natalité": "👶", "Classement FIFA M": "⚽", "Classement FIFA W": "⚽", "Classement FIBA M": "🏀", "Classement FIBA W": "🏀", "Taille de l'armée": "🪖", "Exportations d'or": "🥇", "Production de bananes": "🍌", "Nombre de vaches": "🐄"};
 
+const CATEGORY_INFO = {"Age median": {"sens": "du plus vieux au plus jeune", "desc": "Âge médian de la population"}, "Altitude moyenne": {"sens": "du plus haut au plus bas", "desc": "Altitude moyenne du territoire"}, "CO² par habitant": {"sens": "du plus pollueur au moins pollueur", "desc": "Émissions de CO² par habitant"}, "Consommation d'alcool": {"sens": "du plus consommateur au moins", "desc": "Litres d'alcool pur par habitant/an"}, "Consommation d'electricité": {"sens": "du plus consommateur au moins", "desc": "kWh consommés par habitant/an"}, "Consommation d'œufs par habitant": {"sens": "du plus consommateur au moins", "desc": "Œufs consommés par habitant/an"}, "Consommation de beurre par habitant": {"sens": "du plus consommateur au moins", "desc": "Kg de beurre par habitant/an"}, "Consommation de bières par habitant": {"sens": "du plus consommateur au moins", "desc": "Litres de bière par habitant/an"}, "Consommation de café par habitant": {"sens": "du plus consommateur au moins", "desc": "Kg de café par habitant/an"}, "Consommation de fruits par habitant": {"sens": "du plus consommateur au moins", "desc": "Kg de fruits par habitant/an"}, "Consommation de lait par habitant": {"sens": "du plus consommateur au moins", "desc": "Kg de lait par habitant/an"}, "Consommation de poissons par habitant": {"sens": "du plus consommateur au moins", "desc": "Kg de poisson par habitant/an"}, "Consommation de thé par habitant": {"sens": "du plus consommateur au moins", "desc": "Kg de thé par habitant/an"}, "Consommation de viande par habitant": {"sens": "du plus consommateur au moins", "desc": "Kg de viande par habitant/an"}, "Densité": {"sens": "du plus dense au moins dense", "desc": "Habitants par km²"}, "Developpement digital": {"sens": "du plus avancé au moins avancé", "desc": "Indice de maturité numérique"}, "Energie solaire": {"sens": "du plus producteur au moins", "desc": "Production solaire par habitant"}, "Espérance de vie": {"sens": "de la plus longue à la plus courte", "desc": "Espérance de vie à la naissance"}, "Gaspillage alimentaire": {"sens": "du plus gaspilleur au moins", "desc": "Kg gaspillés par habitant/an"}, "Global Peace Index": {"sens": "du plus pacifique au moins", "desc": "Indice de paix mondiale"}, "Indice d'Innovation": {"sens": "du plus innovant au moins", "desc": "Capacité d'innovation du pays"}, "Indice de Développement Humain": {"sens": "du plus développé au moins", "desc": "Santé, éducation, niveau de vie"}, "Indice de corruption": {"sens": "du moins corrompu au plus corrompu", "desc": "Perception de la corruption"}, "Indice de démocratie": {"sens": "du plus démocratique au moins", "desc": "Score démocratie (The Economist)"}, "Indice environnemental": {"sens": "du plus écologique au moins", "desc": "Performance environnementale"}, "Liberté de la presse": {"sens": "du plus libre au moins libre", "desc": "Liberté accordée aux journalistes"}, "Nombre d'étoilés Michelin": {"sens": "du plus grand nombre au moins", "desc": "Restaurants étoilés Michelin"}, "Nombre de McDonald's": {"sens": "du plus grand nombre au moins", "desc": "Nombre de restaurants McDonald's"}, "Nombre de médailles olympiques": {"sens": "du plus grand nombre au moins", "desc": "Total médailles olympiques historiques"}, "PIB par habitant": {"sens": "du plus riche au moins riche", "desc": "Richesse par habitant"}, "Population": {"sens": "du plus peuplé au moins peuplé", "desc": "Nombre total d'habitants"}, "QI moyen": {"sens": "du plus élevé au plus bas", "desc": "Score moyen aux tests de QI"}, "Stabilité politique": {"sens": "du plus stable au moins stable", "desc": "Stabilité et absence de violence"}, "Superficie": {"sens": "du plus grand au plus petit", "desc": "Surface totale en km²"}, "Surface forestière": {"sens": "du plus boisé au moins boisé", "desc": "% du territoire couvert de forêts"}, "Taille ZEE": {"sens": "de la plus grande à la plus petite", "desc": "Zone Économique Exclusive maritime"}, "Taux de natalité": {"sens": "du plus élevé au plus bas", "desc": "Naissances pour 1000 habitants/an"}, "Classement FIFA M": {"sens": "du mieux classé au moins bien classé", "desc": "Classement FIFA équipe masculine"}, "Classement FIFA W": {"sens": "du mieux classé au moins bien classé", "desc": "Classement FIFA équipe féminine"}, "Classement FIBA M": {"sens": "du mieux classé au moins bien classé", "desc": "Classement FIBA basket masculin"}, "Classement FIBA W": {"sens": "du mieux classé au moins bien classé", "desc": "Classement FIBA basket féminin"}, "Taille de l'armée": {"sens": "de la plus grande à la plus petite", "desc": "Nombre de militaires actifs"}, "Exportations d'or": {"sens": "du plus exportateur au moins", "desc": "Valeur des exportations d'or"}, "Production de bananes": {"sens": "du plus producteur au moins", "desc": "Tonnes de bananes produites/an"}, "Nombre de vaches": {"sens": "du plus grand cheptel au moins", "desc": "Nombre de bovins sur le territoire"}};
+
+
+function toggleTooltip(card) {
+  const bubble = card.querySelector('.tooltip-bubble');
+  if (!bubble) return;
+  // Close all others
+  document.querySelectorAll('.tooltip-bubble.visible').forEach(b => {
+    if (b !== bubble) b.classList.remove('visible');
+  });
+  bubble.classList.toggle('visible');
+}
+
 function render() {
   document.getElementById('dayBadge').textContent = `Jour #${getDayNumber()}`;
   const app = document.getElementById('app');
@@ -17185,8 +17234,12 @@ function render() {
 
     <div class="indices-list">
       ${shownIndices.map((ind, i) => `
-        <div class="indice-card ${i === shownIndices.length - 1 ? 'new' : ''}">
-          <div class="indice-label">${CATEGORY_EMOJIS[ind.categorie] || "🌐"} ${ind.categorie}</div>
+        <div class="indice-card ${i === shownIndices.length - 1 ? 'new' : ''}" onclick="toggleTooltip(this)">
+          <div class="tooltip-bubble">${CATEGORY_INFO[ind.categorie] ? CATEGORY_INFO[ind.categorie].desc : ''}</div>
+          <div style="flex:1">
+            <div class="indice-label">${CATEGORY_EMOJIS[ind.categorie] || "🌐"} ${ind.categorie}</div>
+            ${CATEGORY_INFO[ind.categorie] ? `<div class="indice-sens">↑ ${CATEGORY_INFO[ind.categorie].sens}</div>` : ''}
+          </div>
           <div class="indice-rank">${ordinal(ind.classement)} <span>mondial</span></div>
         </div>
       `).join('')}
