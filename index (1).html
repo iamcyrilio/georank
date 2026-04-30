@@ -80,6 +80,13 @@
     letter-spacing: 0.5px;
   }
 
+  .rules-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+    letter-spacing: 0.3px;
+  }
+
   .day-badge {
     display: inline-block;
     margin-top: 10px;
@@ -259,7 +266,7 @@
     text-decoration: line-through;
   }
 
-  .flag-emoji { font-size: 20px; line-height: 1; }
+  .flag-emoji { display: flex; align-items: center; }
 
   /* Submit button */
   .btn-submit {
@@ -306,10 +313,17 @@
   }
 
   .end-flag {
-    font-size: 72px;
-    margin-bottom: 12px;
-    display: block;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
     animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .end-flag img {
+    width: 120px;
+    height: 90px;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
 
   @keyframes popIn {
@@ -422,6 +436,7 @@
     <div class="logo">GéoRank 🌍</div>
     <div class="tagline">Devinez le pays mystère du jour</div>
     <div class="day-badge" id="dayBadge">Jour #—</div>
+    <div class="rules-hint">🕵️ Un indice à la fois · 8 essais max · Un pays par jour</div>
   </header>
 
   <div id="app">
@@ -17068,17 +17083,48 @@ function getDayNumber() {
   return Math.floor((now - start) / 86400000) + 1;
 }
 
-function getTodayCountry() {
-  const seed = getToday().split('-').join('');
-  const idx = parseInt(seed) % PAYS_DATA.length;
-  return PAYS_DATA[idx];
+// ─── Seeded RNG (Mulberry32) ─────────────────────────────────────
+function seededRng(seed) {
+  let s = seed;
+  return function() {
+    s |= 0; s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle(arr, rng) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function getTodayData() {
+  const seed = parseInt(getToday().split('-').join(''));
+  const rng = seededRng(seed);
+
+  // Pick 3 distinct countries
+  const shuffledCountries = seededShuffle(PAYS_DATA, seededRng(seed));
+  const todayCountries = shuffledCountries.slice(0, 3);
+
+  // For each country, pick 8 random indices using a different seed offset
+  return todayCountries.map((country, ci) => {
+    const indiceRng = seededRng(seed + ci * 999);
+    const shuffledIndices = seededShuffle(country.indices, indiceRng);
+    return {
+      ...country,
+      indices: shuffledIndices.slice(0, 8)
+    };
+  });
 }
 
 function getFlagEmoji(iso) {
-  if (!iso || iso.length !== 2) return '🏳️';
-  return iso.toUpperCase().split('').map(c =>
-    String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
-  ).join('');
+  if (!iso || iso.length !== 2) return '<img src="https://flagcdn.com/24x18/xx.png" style="width:24px;height:18px;border-radius:2px;object-fit:cover;">';
+  return '<img src="https://flagcdn.com/24x18/' + iso.toLowerCase() + '.png" style="width:24px;height:18px;border-radius:2px;object-fit:cover;" alt="' + iso + '">';
 }
 
 function ordinal(n) {
@@ -17110,6 +17156,8 @@ let state = {
 };
 
 // ─── Render ─────────────────────────────────────────────────────
+const CATEGORY_EMOJIS = {"Age median": "👴", "Altitude moyenne": "⛰️", "CO² par habitant": "🌫️", "Consommation d'alcool": "🍷", "Consommation d'electricité": "⚡", "Consommation d'œufs par habitant": "🥚", "Consommation de beurre par habitant": "🧈", "Consommation de bières par habitant": "🍺", "Consommation de café par habitant": "☕", "Consommation de fruits par habitant": "🍎", "Consommation de lait par habitant": "🥛", "Consommation de poissons par habitant": "🐟", "Consommation de thé par habitant": "🍵", "Consommation de viande par habitant": "🥩", "Densité": "👥", "Developpement digital": "💻", "Energie solaire": "☀️", "Espérance de vie": "❤️", "Gaspillage alimentaire": "🗑️", "Global Peace Index": "🕊️", "Indice d'Innovation": "💡", "Indice de Développement Humain": "🌱", "Indice de corruption": "🤐", "Indice de démocratie": "🗳️", "Indice environnemental": "🌿", "Liberté de la presse": "📰", "Nombre d'étoilés Michelin": "⭐", "Nombre de McDonald's": "🍔", "Nombre de médailles olympiques": "🏅", "PIB par habitant": "💰", "Population": "🌍", "QI moyen": "🧠", "Stabilité politique": "🏛️", "Superficie": "📐", "Surface forestière": "🌲", "Taille ZEE": "🌊", "Taux de natalité": "👶", "Classement FIFA M": "⚽", "Classement FIFA W": "⚽", "Classement FIBA M": "🏀", "Classement FIBA W": "🏀", "Taille de l'armée": "🪖", "Exportations d'or": "🥇", "Production de bananes": "🍌", "Nombre de vaches": "🐄"};
+
 function render() {
   document.getElementById('dayBadge').textContent = `Jour #${getDayNumber()}`;
   const app = document.getElementById('app');
@@ -17132,12 +17180,12 @@ function render() {
       }).join('')}
     </div>
 
-    <div class="indice-counter">${state.indiceIdx + 1} / ${MAX_INDICES} indice${state.indiceIdx > 0 ? 's' : ''}</div>
+    <div class="indice-counter">Indice ${state.indiceIdx + 1} / ${MAX_INDICES}</div>
 
     <div class="indices-list">
       ${shownIndices.map((ind, i) => `
         <div class="indice-card ${i === shownIndices.length - 1 ? 'new' : ''}">
-          <div class="indice-label">${ind.categorie}</div>
+          <div class="indice-label">${CATEGORY_EMOJIS[ind.categorie] || "🌐"} ${ind.categorie}</div>
           <div class="indice-rank">${ordinal(ind.classement)} <span>mondial</span></div>
         </div>
       `).join('')}
@@ -17167,6 +17215,19 @@ function render() {
   setupInput(usedCountries);
 }
 
+function buildEmojiScore() {
+  const total = state.indiceIdx + 1;
+  let squares = '';
+  for (let i = 0; i < MAX_INDICES; i++) {
+    if (i >= total && !state.won) { squares += '⬜'; continue; }
+    if (i >= total) { squares += '⬜'; continue; }
+    if (state.won && i === total - 1) { squares += '🟩'; continue; }
+    if (state.tentatives[i] !== undefined) { squares += '🟥'; continue; }
+    squares += '⬛';
+  }
+  return squares;
+}
+
 function renderEnd(app) {
   const flag = getFlagEmoji(country.iso);
   const indicesUsed = state.indiceIdx + 1;
@@ -17174,12 +17235,12 @@ function renderEnd(app) {
 
   app.innerHTML = `
     <div class="end-screen">
-      <span class="end-flag">${flag}</span>
+      <div class="end-flag">${flag}</div>
       <div class="end-title ${state.won ? 'win' : 'lose'}">${state.won ? '🎉 Bravo !' : 'Raté…'}</div>
       <div class="end-country">${country.nom}</div>
       <div class="end-score">
-        ${state.won 
-          ? `Trouvé en <strong>${indicesUsed} indice${indicesUsed > 1 ? 's' : ''}</strong>` 
+        ${state.won
+          ? `Trouvé en <strong>${indicesUsed} indice${indicesUsed > 1 ? 's' : ''}</strong>`
           : `Le pays était <strong>${country.nom}</strong>`}
       </div>
       <div class="emoji-score">${emoji}</div>
@@ -17193,9 +17254,7 @@ function renderEnd(app) {
   `;
 
   document.getElementById('btnShare').addEventListener('click', () => {
-    const text = `GéoRank #${getDayNumber()} ${state.won ? `${indicesUsed}/${MAX_INDICES}` : 'X/8'}
-${emoji}
-jouer sur georank.fr`;
+    const text = `GéoRank #${getDayNumber()} ${state.won ? `${indicesUsed}/${MAX_INDICES}` : 'X/8'}\n${emoji}\njouer sur georank.fr`;
     navigator.clipboard.writeText(text).then(() => {
       const btn = document.getElementById('btnShare');
       btn.textContent = '✓ Copié !';
@@ -17209,19 +17268,6 @@ jouer sur georank.fr`;
 
   updateCountdown();
   setInterval(updateCountdown, 1000);
-}
-
-function buildEmojiScore() {
-  const total = state.indiceIdx + 1;
-  let squares = '';
-  for (let i = 0; i < MAX_INDICES; i++) {
-    if (!state.won && i >= total) { squares += '⬜'; continue; }
-    if (i >= total) { squares += '⬜'; continue; }
-    if (state.won && i === total - 1) { squares += '🟩'; continue; }
-    if (state.tentatives[i] !== undefined) { squares += '🟥'; continue; }
-    squares += '⬛'; // passed
-  }
-  return squares;
 }
 
 function updateCountdown() {
@@ -17388,9 +17434,19 @@ function passIndice() {
 
 // ─── Init ────────────────────────────────────────────────────────
 function init() {
-  country = getTodayCountry();
-  const saved = loadState();
+  const seed = parseInt(getToday().split('-').join(''));
+  const rng = seededRng(seed);
 
+  // Pick today's country
+  const shuffledCountries = seededShuffle(PAYS_DATA, seededRng(seed));
+  const base = shuffledCountries[0];
+
+  // Pick 8 random indices for today
+  const indiceRng = seededRng(seed + 42);
+  const shuffledIndices = seededShuffle(base.indices, indiceRng);
+  country = { ...base, indices: shuffledIndices.slice(0, 8) };
+
+  const saved = loadState();
   if (saved) {
     state = saved;
   }
